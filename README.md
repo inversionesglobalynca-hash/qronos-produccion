@@ -1,80 +1,266 @@
-# 🏗 Scaffold-ETH 2
+# 🎓 QRonos - Sistema de Certificación de Asistencia Universitaria
 
-<h4 align="center">
-  <a href="https://docs.scaffoldeth.io">Documentation</a> |
-  <a href="https://scaffoldeth.io">Website</a>
-</h4>
+![Solidity](https://img.shields.io/badge/Solidity-0.8.30-363636?style=flat-square&logo=solidity)
+![Next.js](https://img.shields.io/badge/Next.js-14-black?style=flat-square&logo=next.js)
+![Sepolia](https://img.shields.io/badge/Network-Sepolia-blue?style=flat-square)
+![License](https://img.shields.io/badge/License-MIT-green?style=flat-square)
 
-🧪 An open-source, up-to-date toolkit for building decentralized applications (dapps) on the Ethereum blockchain. It's designed to make it easier for developers to create and deploy smart contracts and build user interfaces that interact with those contracts.
+Sistema descentralizado de registro de asistencia universitaria con QR dinámico y certificados NFT (POAPs) verificables en blockchain.
 
-⚙️ Built using NextJS, RainbowKit, Hardhat, Wagmi, Viem, and Typescript.
+---
 
-- ✅ **Contract Hot Reload**: Your frontend auto-adapts to your smart contract as you edit it.
-- 🪝 **[Custom hooks](https://docs.scaffoldeth.io/hooks/)**: Collection of React hooks wrapper around [wagmi](https://wagmi.sh/) to simplify interactions with smart contracts with typescript autocompletion.
-- 🧱 [**Components**](https://docs.scaffoldeth.io/components/): Collection of common web3 components to quickly build your frontend.
-- 🔥 **Burner Wallet & Local Faucet**: Quickly test your application with a burner wallet and local faucet.
-- 🔐 **Integration with Wallet Providers**: Connect to different wallet providers and interact with the Ethereum network.
+## 🌟 Características Principales
 
-![Debug Contracts tab](https://github.com/scaffold-eth/scaffold-eth-2/assets/55535804/b237af0c-5027-4849-a5c1-2e31495cccb1)
+### ✅ Smart Contract Robusto
+- **6 capas de validación** de seguridad
+- **Control de eventos** con cupos y horarios
+- **Sistema de roles** (Administrador/Profesor)
+- **Validación de identidad** (doble asistencia, QR expirado)
+- **POAPs (NFTs)** como certificados verificables
 
-## Requirements
+### ✅ Dashboard del Profesor
+- Creación de eventos de clase
+- **QR dinámico** con actualización automática (15 segundos)
+- Contador visual en tiempo real
+- Estadísticas de asistencia
+- Botón copiar JSON para testing
 
-Before you begin, you need to install the following tools:
+### ✅ Dashboard del Estudiante
+- **Scanner de cámara QR** con selector de múltiples dispositivos
+- Detección automática de códigos QR
+- Modo manual (backup sin cámara)
+- Visualización de POAPs coleccionados
+- Historial de asistencias
 
-- [Node (>= v20.18.3)](https://nodejs.org/en/download/)
-- Yarn ([v1](https://classic.yarnpkg.com/en/docs/install/) or [v2+](https://yarnpkg.com/getting-started/install))
-- [Git](https://git-scm.com/downloads)
+---
 
-## Quickstart
+## 🚀 Deployment en Producción (v1.0)
 
-To get started with Scaffold-ETH 2, follow the steps below:
-
-1. Install dependencies if it was skipped in CLI:
-
+### **Smart Contract Desplegado:**
 ```
-cd my-dapp-example
+Red: Sepolia Testnet
+Dirección: 0x86f3FdE05CbbffA1Ce31129368994AC965bba914
+ChainID: 11155111
+Etherscan: https://sepolia.etherscan.io/address/0x86f3FdE05CbbffA1Ce31129368994AC965bba914
+```
+
+### **Estado:**
+- ✅ Código verificado públicamente
+- ✅ Auditable en Etherscan
+- ✅ Listo para uso en producción
+
+---
+
+## 🛠️ Stack Tecnológico
+
+### **Blockchain**
+- **Solidity 0.8.30** - Smart contracts
+- **Hardhat** - Desarrollo y testing
+- **OpenZeppelin** - Librerías de seguridad (ERC1155, AccessControl)
+- **Ethers.js** - Interacción Web3
+
+### **Frontend**
+- **Next.js 14** - Framework React
+- **TypeScript** - Tipado estático
+- **TailwindCSS + DaisyUI** - Diseño UI
+- **Wagmi + Viem** - Hooks Web3
+- **@yudiel/react-qr-scanner** - Scanner de cámara
+
+### **Infraestructura**
+- **Alchemy** - RPC Provider (Sepolia)
+- **Scaffold-ETH 2** - Boilerplate Web3
+- **Vercel** - Hosting del frontend
+
+---
+
+## 📦 Instalación y Configuración
+
+### **Requisitos:**
+- Node.js >= 18
+- Yarn
+- Wallet (MetaMask/Rabby) con SepoliaETH
+
+### **Clonar el repositorio:**
+```bash
+git clone https://github.com/inversionesglobalynca-hash/qronos-produccion.git
+cd qronos-produccion
+```
+
+### **Instalar dependencias:**
+```bash
 yarn install
 ```
 
-2. Run a local network in the first terminal:
+### **Configurar variables de entorno:**
 
+Crea un archivo `.env` en `packages/hardhat/`:
+```env
+ALCHEMY_API_KEY=tu_api_key_de_alchemy
+DEPLOYER_PRIVATE_KEY=0xtu_private_key
+__RUNTIME_DEPLOYER_PRIVATE_KEY=0xtu_private_key
+ETHERSCAN_API_KEY=tu_etherscan_api_key
 ```
+
+⚠️ **NUNCA subas el archivo `.env` a GitHub**
+
+---
+
+## 🧪 Testing Local
+
+### **Terminal 1: Blockchain Local**
+```bash
 yarn chain
 ```
 
-This command starts a local Ethereum network using Hardhat. The network runs on your local machine and can be used for testing and development. You can customize the network configuration in `packages/hardhat/hardhat.config.ts`.
-
-3. On a second terminal, deploy the test contract:
-
-```
+### **Terminal 2: Deploy Contratos**
+```bash
 yarn deploy
 ```
 
-This command deploys a test smart contract to the local network. The contract is located in `packages/hardhat/contracts` and can be modified to suit your needs. The `yarn deploy` command uses the deploy script located in `packages/hardhat/deploy` to deploy the contract to the network. You can also customize the deploy script.
-
-4. On a third terminal, start your NextJS app:
-
-```
+### **Terminal 3: Frontend**
+```bash
 yarn start
 ```
 
-Visit your app on: `http://localhost:3000`. You can interact with your smart contract using the `Debug Contracts` page. You can tweak the app config in `packages/nextjs/scaffold.config.ts`.
+Abre: `http://localhost:3000`
 
-Run smart contract test with `yarn hardhat:test`
+---
 
-- Edit your smart contracts in `packages/hardhat/contracts`
-- Edit your frontend homepage at `packages/nextjs/app/page.tsx`. For guidance on [routing](https://nextjs.org/docs/app/building-your-application/routing/defining-routes) and configuring [pages/layouts](https://nextjs.org/docs/app/building-your-application/routing/pages-and-layouts) checkout the Next.js documentation.
-- Edit your deployment scripts in `packages/hardhat/deploy`
+## 🌐 Deploy en Sepolia
 
+### **1. Deploy del Smart Contract:**
+```bash
+cd packages/hardhat
+yarn deploy --network sepolia
+```
 
-## Documentation
+### **2. Verificar en Etherscan:**
+```bash
+yarn verify --network sepolia
+```
 
-Visit our [docs](https://docs.scaffoldeth.io) to learn how to start building with Scaffold-ETH 2.
+---
 
-To know more about its features, check out our [website](https://scaffoldeth.io).
+## 📖 Uso del Sistema
 
-## Contributing to Scaffold-ETH 2
+### **Como Profesor:**
 
-We welcome contributions to Scaffold-ETH 2!
+1. Selecciona rol "👨‍🏫 Profesor"
+2. Crea un evento (nombre, código, cupo, duración)
+3. Activa el QR dinámico
+4. Comparte el QR (proyector/pantalla)
+5. Monitorea asistencias en tiempo real
 
-Please see [CONTRIBUTING.MD](https://github.com/scaffold-eth/scaffold-eth-2/blob/main/CONTRIBUTING.md) for more information and guidelines for contributing to Scaffold-ETH 2.
+### **Como Estudiante:**
+
+1. Selecciona rol "🎓 Estudiante"
+2. Activa la cámara o usa modo manual
+3. Escanea el QR del profesor
+4. Marca tu asistencia
+5. Visualiza tu POAP (certificado NFT)
+
+---
+
+## 🔒 Seguridad
+
+### **Validaciones del Smart Contract (v1.0):**
+
+1. ✅ Evento existe y está activo
+2. ✅ No ha asistido previamente
+3. ✅ Dentro del horario de clase
+4. ✅ Cupo disponible
+5. ✅ Prevención de replay attacks
+
+**Nota v1.0:** Validación de firma criptográfica desactivada temporalmente para MVP. Se reactivará en v2.0.
+
+### **Buenas Prácticas:**
+
+- Private keys encriptadas localmente
+- Variables de entorno no versionadas
+- Código verificado públicamente
+- Testing exhaustivo
+
+---
+
+## 🎯 Roadmap - Versión 2.0
+
+### **Mejoras Planificadas:**
+
+#### **🔐 Seguridad**
+- [ ] Reactivar validación criptográfica de firmas
+- [ ] Sistema anti-suplantación avanzado
+- [ ] Rate limiting en QR generation
+- [ ] Auditoría de seguridad profesional
+
+#### **📱 Funcionalidades**
+- [ ] App móvil nativa (React Native)
+- [ ] Notificaciones push
+- [ ] Exportación de reportes PDF
+- [ ] Dashboard de administración
+
+#### **🎨 UX/UI**
+- [ ] Metadata de POAPs con imágenes personalizadas
+- [ ] Animaciones de feedback mejoradas
+- [ ] Modo offline con sincronización
+- [ ] Tema claro/oscuro
+
+#### **🌐 Infraestructura**
+- [ ] Deploy en mainnet (Ethereum/Polygon)
+- [ ] IPFS para metadata
+- [ ] Integración con sistemas universitarios
+- [ ] API REST para terceros
+
+#### **📊 Analytics**
+- [ ] Dashboard de estadísticas avanzadas
+- [ ] Reportes de asistencia automáticos
+- [ ] Gráficos y visualizaciones
+- [ ] Exportación de datos
+
+---
+
+## 👨‍💻 Desarrollo
+
+### **Estructura del Proyecto:**
+```
+qronos-produccion/
+├── packages/
+│   ├── hardhat/              # Smart contracts
+│   │   ├── contracts/
+│   │   │   └── QRonos.sol
+│   │   ├── deploy/
+│   │   └── test/
+│   └── nextjs/               # Frontend
+│       ├── app/
+│       ├── components/
+│       │   └── qronos/
+│       │       ├── ProfessorDashboard.tsx
+│       │       ├── StudentDashboard.tsx
+│       │       └── QRScanner.tsx
+│       └── contracts/
+└── README.md
+```
+
+---
+
+## 📄 Licencia
+
+MIT License - Ver [LICENSE](LICENSE) para más detalles.
+
+---
+
+## 👤 Autora
+
+**Niurka Oropeza**
+- Maestría en Informática - UPT Aragua Dr. Federico Brito Figueroa
+- Especialización: Desarrollo de Software
+---
+
+## 🎓 Caso de Uso Académico
+
+Este proyecto fue desarrollado como parte del curso de Desarrollo de Aplicaciones Descentralizadas (dApps) en la Maestría de Informática, mención Desarrollo de Software. UPTA, Venezuela.
+
+**Objetivo:** Demostrar el potencial de la tecnología blockchain para resolver problemas reales en instituciones educativas, específicamente el registro transparente e inmutable de asistencia estudiantil.
+
+---
+
+_Última actualización: Enero 30, 2026_

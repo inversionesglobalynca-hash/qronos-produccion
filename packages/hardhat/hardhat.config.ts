@@ -12,15 +12,15 @@ import "hardhat-deploy-ethers";
 import { task } from "hardhat/config";
 import generateTsAbis from "./scripts/generateTsAbis";
 
-// If not set, it uses ours Alchemy's default API key.
-// You can get your own at https://dashboard.alchemyapi.io
-const providerApiKey = process.env.ALCHEMY_API_KEY || "cR4WnXePioePZ5fFrnSiR";
-// If not set, it uses the hardhat account 0 private key.
-// You can generate a random account with `yarn generate` or `yarn account:import` to import your existing PK
+// IMPORTANTE: Usa las variables de entorno del archivo .env
+const providerApiKey = process.env.ALCHEMY_API_KEY || "oKxs-03sij-U_N0iOlrSsZFr29-IqbuF";
+
+// Private Key del deployer desde .env
 const deployerPrivateKey =
-  process.env.__RUNTIME_DEPLOYER_PRIVATE_KEY ?? "0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80";
-// If not set, it uses our block explorers default API keys.
-const etherscanApiKey = process.env.ETHERSCAN_V2_API_KEY || "DNXJA8RX2Q3VZ4URQIWP7Z68CJXQZSC6AW";
+  process.env.DEPLOYER_PRIVATE_KEY || "0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80";
+
+// Etherscan API Key
+const etherscanApiKey = process.env.ETHERSCAN_API_KEY || "DNXJA8RX2Q3VZ4URQIWP7Z68CJXQZSC6AW";
 
 const config: HardhatUserConfig = {
   solidity: {
@@ -30,7 +30,6 @@ const config: HardhatUserConfig = {
         settings: {
           optimizer: {
             enabled: true,
-            // https://docs.soliditylang.org/en/latest/using-the-compiler.html#optimizer-options
             runs: 200,
           },
         },
@@ -40,13 +39,10 @@ const config: HardhatUserConfig = {
   defaultNetwork: "localhost",
   namedAccounts: {
     deployer: {
-      // By default, it will take the first Hardhat account as the deployer
       default: 0,
     },
   },
   networks: {
-    // View the networks that are pre-configured.
-    // If the network you are looking for is not here you can add new network settings
     hardhat: {
       forking: {
         url: `https://eth-mainnet.alchemyapi.io/v2/${providerApiKey}`,
@@ -57,9 +53,11 @@ const config: HardhatUserConfig = {
       url: "https://mainnet.rpc.buidlguidl.com",
       accounts: [deployerPrivateKey],
     },
+    // ⭐ SEPOLIA - Configurado para usar tu .env
     sepolia: {
       url: `https://eth-sepolia.g.alchemy.com/v2/${providerApiKey}`,
       accounts: [deployerPrivateKey],
+      chainId: 11155111,
     },
     arbitrum: {
       url: `https://arb-mainnet.g.alchemy.com/v2/${providerApiKey}`,
@@ -126,11 +124,9 @@ const config: HardhatUserConfig = {
       accounts: [deployerPrivateKey],
     },
   },
-  // Configuration for harhdat-verify plugin
   etherscan: {
     apiKey: etherscanApiKey,
   },
-  // Configuration for etherscan-verify from hardhat-deploy plugin
   verify: {
     etherscan: {
       apiKey: etherscanApiKey,
@@ -141,11 +137,8 @@ const config: HardhatUserConfig = {
   },
 };
 
-// Extend the deploy task
 task("deploy").setAction(async (args, hre, runSuper) => {
-  // Run the original deploy task
   await runSuper(args);
-  // Force run the generateTsAbis script
   await generateTsAbis(hre);
 });
 

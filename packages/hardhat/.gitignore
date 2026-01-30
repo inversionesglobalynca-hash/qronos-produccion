@@ -1,30 +1,116 @@
-# dependencies
-node_modules
-
-# env files
+# ============================================
+# VARIABLES DE ENTORNO - CRÍTICO
+# ============================================
 .env
+.env.local
+.env.*.local
+**/.env
+**/.env.local
+.password
+**/.password
 
-# coverage
-coverage
-coverage.json
+# Archivos de cuentas encriptadas (Scaffold-ETH)
+**/generated/accounts.json
+**/generated/.password
 
-# typechain
+# ============================================
+# DEPENDENCIAS
+# ============================================
+node_modules
+**/node_modules
+.pnp
+.pnp.js
+
+# ============================================
+# ARCHIVOS DE BUILD
+# ============================================
+# Hardhat
+cache
+artifacts
+deployments/localhost
 typechain
 typechain-types
 
-# hardhat files
-cache
-artifacts
-
-# zkSync files
+# zkSync
 artifacts-zk
 cache-zk
 
-# deployments
-deployments/localhost
+# Next.js
+.next
+out
+build
+dist
 
-# typescript
+# TypeScript
 *.tsbuildinfo
+next-env.d.ts
 
-# other
+# ============================================
+# TESTING Y COVERAGE
+# ============================================
+coverage
+coverage.json
+.nyc_output
+*.lcov
+
+# ============================================
+# LOGS
+# ============================================
+logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+lerna-debug.log*
+.pnpm-debug.log*
+
+# ============================================
+# IDE Y EDITORES
+# ============================================
+.vscode
+.idea
+*.swp
+*.swo
+*~
+.DS_Store
+*.sublime-project
+*.sublime-workspace
+
+# ============================================
+# SISTEMA OPERATIVO
+# ============================================
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+Desktop.ini
+
+# ============================================
+# ARCHIVOS TEMPORALES
+# ============================================
 temp
+tmp
+*.tmp
+.temp
+.cache
+
+# ============================================
+# OTROS
+# ============================================
+# Backups
+*.bak
+*.backup
+*~
+
+# Datos sensibles
+*.key
+*.pem
+secrets/
+credentials/
+
+# Archivos de debugging
+debug.log
+error.log
