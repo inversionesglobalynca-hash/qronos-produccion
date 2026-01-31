@@ -1,13 +1,40 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useAccount } from "wagmi";
 import { ProfessorDashboard } from "~~/components/qronos/ProfessorDashboard";
+import { ProfessorRegistration } from "~~/components/qronos/ProfessorRegistration";
 import { StudentDashboard } from "~~/components/qronos/StudentDashboard";
+import { StudentRegistration } from "~~/components/qronos/StudentRegistration";
 
 const Home = () => {
   const { address, isConnected } = useAccount();
   const [selectedRole, setSelectedRole] = useState<"student" | "professor" | null>(null);
+  const [isProfessorRegistered, setIsProfessorRegistered] = useState(false);
+  const [isStudentRegistered, setIsStudentRegistered] = useState(false);
+
+  // Check if user is registered when address changes
+  useEffect(() => {
+    if (address) {
+      const professorProfile = localStorage.getItem(`professor_${address}`);
+      const studentProfile = localStorage.getItem(`student_${address}`);
+
+      setIsProfessorRegistered(!!professorProfile);
+      setIsStudentRegistered(!!studentProfile);
+    } else {
+      setIsProfessorRegistered(false);
+      setIsStudentRegistered(false);
+    }
+  }, [address]);
+
+  // Handle successful registration
+  const handleProfessorRegistration = () => {
+    setIsProfessorRegistered(true);
+  };
+
+  const handleStudentRegistration = () => {
+    setIsStudentRegistered(true);
+  };
 
   return (
     <div className="flex items-center flex-col flex-grow pt-10">
@@ -59,6 +86,7 @@ const Home = () => {
                           Crea eventos de clase y genera QR dinámicos para tomar asistencia
                         </p>
                         <div className="badge badge-secondary mt-2">Crear Eventos</div>
+                        {isProfessorRegistered && <div className="badge badge-success mt-2">✅ Ya Registrado</div>}
                       </div>
                     </div>
 
@@ -72,6 +100,7 @@ const Home = () => {
                         <h3 className="card-title text-2xl">Estudiante</h3>
                         <p className="text-sm opacity-90">Escanea QR para marcar asistencia y colecciona tus POAPs</p>
                         <div className="badge badge-accent mt-2">Escanear QR</div>
+                        {isStudentRegistered && <div className="badge badge-success mt-2">✅ Ya Registrado</div>}
                       </div>
                     </div>
                   </div>
@@ -98,7 +127,17 @@ const Home = () => {
                 </div>
 
                 {/* Dashboard Content */}
-                {selectedRole === "professor" ? <ProfessorDashboard /> : <StudentDashboard />}
+                {selectedRole === "professor" ? (
+                  isProfessorRegistered ? (
+                    <ProfessorDashboard />
+                  ) : (
+                    <ProfessorRegistration onRegistrationComplete={handleProfessorRegistration} />
+                  )
+                ) : isStudentRegistered ? (
+                  <StudentDashboard />
+                ) : (
+                  <StudentRegistration onRegistrationComplete={handleStudentRegistration} />
+                )}
               </>
             )}
           </>

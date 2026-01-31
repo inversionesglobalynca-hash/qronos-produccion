@@ -1,16 +1,46 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { QRScanner } from "./QRScanner";
 import { useAccount } from "wagmi";
 import { useScaffoldReadContract, useScaffoldWriteContract } from "~~/hooks/scaffold-eth";
 import { notification } from "~~/utils/scaffold-eth";
 
+interface StudentProfile {
+  address: string;
+  fullName: string;
+  idCard: string;
+  specialty: string;
+  course: string;
+  registeredAt: string;
+}
+
+interface AttendanceRecord {
+  eventId: number;
+  eventName?: string;
+  course?: string;
+  specialty?: string;
+  timestamp: string;
+}
+
 export const StudentDashboard = () => {
   const { address } = useAccount();
 
+  // Student profile
+  const [studentProfile, setStudentProfile] = useState<StudentProfile | null>(null);
+
   const [scannedData, setScannedData] = useState<any>(null);
   const [manualQRData, setManualQRData] = useState("");
+
+  // Load student profile
+  useEffect(() => {
+    if (address) {
+      const stored = localStorage.getItem(`student_${address}`);
+      if (stored) {
+        setStudentProfile(JSON.parse(stored));
+      }
+    }
+  }, [address]);
 
   // Read student events
   const { data: studentEvents } = useScaffoldReadContract({
@@ -24,7 +54,7 @@ export const StudentDashboard = () => {
   const { writeContractAsync: markAttendance, isPending: isMarking } = useScaffoldWriteContract("QRonos");
 
   /**
-   * Procesar QR - SIN VALIDACIONES DE TIMESTAMP
+   * Procesar QR
    */
   const processQR = (qrData: string) => {
     try {
@@ -47,8 +77,13 @@ export const StudentDashboard = () => {
         return;
       }
 
-      // Guardar datos SIN validar timestamp
-      // El smart contract se encargará de validar
+      // Validar que el estudiante esté registrado
+      if (!studentProfile) {
+        notification.error("❌ Debes registrarte como estudiante primero");
+        return;
+      }
+
+      // Guardar datos
       setScannedData(data);
       notification.success(`✅ QR válido! Evento: ${data.eventId}`);
     } catch (error) {
@@ -78,13 +113,30 @@ export const StudentDashboard = () => {
       return;
     }
 
+    if (!studentProfile) {
+      notification.error("Debes registrarte como estudiante primero");
+      return;
+    }
+
     try {
+      // Intentar marcar asistencia
       await markAttendance({
         functionName: "markAttendanceWithQR",
         args: [BigInt(scannedData.eventId), BigInt(scannedData.timestamp), scannedData.signature],
       });
 
-      notification.success("✅ ¡Asistencia registrada exitosamente!");
+      // Guardar registro de asistencia en localStorage
+      const attendanceRecord: AttendanceRecord = {
+        eventId: scannedData.eventId,
+        timestamp: new Date().toISOString(),
+      };
+
+      const attendanceKey = `student_attendance_${address}`;
+      const existingRecords = JSON.parse(localStorage.getItem(attendanceKey) || "[]");
+      existingRecords.push(attendanceRecord);
+      localStorage.setItem(attendanceKey, JSON.stringify(existingRecords));
+
+      notification.success(`✅ ¡Asistencia registrada exitosamente, ${studentProfile.fullName}!`);
       setScannedData(null);
       setManualQRData("");
     } catch (error: any) {
@@ -107,130 +159,171 @@ export const StudentDashboard = () => {
   };
 
   return (
-    <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-      {/* QR Scanner Section */}
-      <div className="card bg-base-100 shadow-xl">
-        <div className="card-body">
-          <h2 className="card-title text-2xl mb-4">📸 Escanear QR de Asistencia</h2>
-
-          {/* Scanner con Cámara */}
-          <QRScanner
-            onScan={qrData => processQR(qrData)}
-            onError={error => {
-              notification.error(`❌ ${error}`);
-            }}
-          />
-
-          {/* Divider */}
-          <div className="divider">O ingresa manualmente para testing</div>
-
-          {/* Método Manual (Backup) */}
-          <div className="collapse collapse-arrow bg-base-200">
-            <input type="checkbox" />
-            <div className="collapse-title text-sm font-medium">🔧 Modo Manual (Para Testing sin Cámara)</div>
-            <div className="collapse-content">
-              <div className="form-control mt-2">
-                <label className="label">
-                  <span className="label-text">Datos del QR (JSON)</span>
-                </label>
-                <textarea
-                  className="textarea textarea-bordered h-24"
-                  placeholder='{"eventId":0,"timestamp":1234567890,"signature":"0x..."}'
-                  value={manualQRData}
-                  onChange={e => setManualQRData(e.target.value)}
-                />
+    <div className="space-y-6">
+      {/* Student Info Card */}
+      {studentProfile && (
+        <div className="card bg-secondary text-secondary-content shadow-xl">
+          <div className="card-body">
+            <div className="flex items-center gap-4">
+              <span className="text-5xl">🎓</span>
+              <div>
+                <h2 className="card-title text-2xl">{studentProfile.fullName}</h2>
+                <p className="text-sm opacity-90">
+                  {studentProfile.specialty} • {studentProfile.course}
+                </p>
+                <p className="text-xs opacity-70 mt-1">Cédula: {studentProfile.idCard}</p>
+                <p className="text-xs opacity-70">
+                  Wallet: {address?.slice(0, 6)}...{address?.slice(-4)}
+                </p>
               </div>
-
-              <button
-                className="btn btn-primary btn-sm mt-4 w-full"
-                onClick={handleManualScan}
-                disabled={!manualQRData}
-              >
-                🔍 Procesar Manualmente
-              </button>
             </div>
           </div>
+        </div>
+      )}
 
-          {/* QR Procesado - Marcar Asistencia */}
-          {scannedData && (
-            <div className="alert alert-success mt-4">
-              <div className="flex flex-col items-start w-full">
-                <span className="font-bold">✅ QR Válido Procesado</span>
-                <p className="text-sm mt-2">Evento ID: {scannedData.eventId}</p>
-                <p className="text-sm">Timestamp: {new Date(scannedData.timestamp * 1000).toLocaleTimeString()}</p>
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        {/* QR Scanner Section */}
+        <div className="card bg-base-100 shadow-xl">
+          <div className="card-body">
+            <h2 className="card-title text-2xl mb-4">📸 Escanear QR de Asistencia</h2>
 
-                <button className="btn btn-success btn-block mt-4" onClick={handleMarkAttendance} disabled={isMarking}>
-                  {isMarking ? (
-                    <>
-                      <span className="loading loading-spinner"></span>
-                      Registrando...
-                    </>
-                  ) : (
-                    "✓ Marcar Mi Asistencia"
-                  )}
+            {/* Info del estudiante */}
+            {studentProfile && (
+              <div className="alert alert-info mb-4">
+                <div className="flex flex-col w-full">
+                  <span className="font-bold text-sm">📋 Tu Perfil:</span>
+                  <p className="text-xs mt-1">
+                    Solo podrás marcar asistencia en eventos de:
+                    <br />• {studentProfile.specialty}
+                    <br />• {studentProfile.course}
+                  </p>
+                </div>
+              </div>
+            )}
+
+            {/* Scanner con Cámara */}
+            <QRScanner
+              onScan={qrData => processQR(qrData)}
+              onError={error => {
+                notification.error(`❌ ${error}`);
+              }}
+            />
+
+            {/* Divider */}
+            <div className="divider">O ingresa manualmente para testing</div>
+
+            {/* Método Manual (Backup) */}
+            <div className="collapse collapse-arrow bg-base-200">
+              <input type="checkbox" />
+              <div className="collapse-title text-sm font-medium">🔧 Modo Manual (Para Testing sin Cámara)</div>
+              <div className="collapse-content">
+                <div className="form-control mt-2">
+                  <label className="label">
+                    <span className="label-text">Datos del QR (JSON)</span>
+                  </label>
+                  <textarea
+                    className="textarea textarea-bordered h-24"
+                    placeholder='{"eventId":0,"timestamp":1234567890,"signature":"0x..."}'
+                    value={manualQRData}
+                    onChange={e => setManualQRData(e.target.value)}
+                  />
+                </div>
+
+                <button
+                  className="btn btn-primary btn-sm mt-4 w-full"
+                  onClick={handleManualScan}
+                  disabled={!manualQRData}
+                >
+                  🔍 Procesar Manualmente
                 </button>
               </div>
             </div>
-          )}
-        </div>
-      </div>
 
-      {/* My POAPs Section */}
-      <div className="card bg-base-100 shadow-xl">
-        <div className="card-body">
-          <h2 className="card-title text-2xl mb-4">🎖️ Mis POAPs de Asistencia</h2>
+            {/* QR Procesado - Marcar Asistencia */}
+            {scannedData && (
+              <div className="alert alert-success mt-4">
+                <div className="flex flex-col items-start w-full">
+                  <span className="font-bold">✅ QR Válido Procesado</span>
+                  <p className="text-sm mt-2">Evento ID: {scannedData.eventId}</p>
+                  <p className="text-sm">Timestamp: {new Date(scannedData.timestamp * 1000).toLocaleTimeString()}</p>
 
-          {studentEvents && studentEvents.length > 0 ? (
-            <div className="overflow-x-auto">
-              <table className="table table-zebra">
-                <thead>
-                  <tr>
-                    <th>Evento ID</th>
-                    <th>Estado</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {studentEvents.map((eventId: bigint) => (
-                    <tr key={eventId.toString()}>
-                      <td className="font-mono">#{eventId.toString()}</td>
-                      <td>
-                        <span className="badge badge-success gap-2">✅ Asistencia Registrada</span>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-
-              <div className="stats shadow mt-4 w-full">
-                <div className="stat">
-                  <div className="stat-figure text-primary">
-                    <span className="text-4xl">🎓</span>
-                  </div>
-                  <div className="stat-title">Total de Asistencias</div>
-                  <div className="stat-value text-primary">{studentEvents.length}</div>
-                  <div className="stat-desc">POAPs coleccionados</div>
+                  <button
+                    className="btn btn-success btn-block mt-4"
+                    onClick={handleMarkAttendance}
+                    disabled={isMarking}
+                  >
+                    {isMarking ? (
+                      <>
+                        <span className="loading loading-spinner"></span>
+                        Registrando...
+                      </>
+                    ) : (
+                      "✓ Marcar Mi Asistencia"
+                    )}
+                  </button>
                 </div>
               </div>
-            </div>
-          ) : (
-            <div className="alert alert-warning">
-              <span>Aún no has registrado asistencia a ningún evento</span>
-            </div>
-          )}
+            )}
+          </div>
+        </div>
 
-          <div className="divider">Información</div>
+        {/* My POAPs Section */}
+        <div className="card bg-base-100 shadow-xl">
+          <div className="card-body">
+            <h2 className="card-title text-2xl mb-4">🎖️ Mis POAPs de Asistencia</h2>
 
-          <div className="prose max-w-none">
-            <p className="text-sm text-base-content/70">
-              Los POAPs (Proof of Attendance Protocol) son NFTs que certifican tu asistencia a eventos de clase. Son
-              verificables en la blockchain y pueden ser usados como comprobante para:
-            </p>
-            <ul className="text-sm text-base-content/70 list-disc list-inside">
-              <li>Solicitudes de pasantías</li>
-              <li>Constancias académicas</li>
-              <li>Portafolio profesional</li>
-              <li>Requisitos de graduación</li>
-            </ul>
+            {studentEvents && studentEvents.length > 0 ? (
+              <div className="overflow-x-auto">
+                <table className="table table-zebra">
+                  <thead>
+                    <tr>
+                      <th>Evento ID</th>
+                      <th>Estado</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {studentEvents.map((eventId: bigint) => (
+                      <tr key={eventId.toString()}>
+                        <td className="font-mono">#{eventId.toString()}</td>
+                        <td>
+                          <span className="badge badge-success gap-2">✅ Asistencia Registrada</span>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+
+                <div className="stats shadow mt-4 w-full">
+                  <div className="stat">
+                    <div className="stat-figure text-primary">
+                      <span className="text-4xl">🎓</span>
+                    </div>
+                    <div className="stat-title">Total de Asistencias</div>
+                    <div className="stat-value text-primary">{studentEvents.length}</div>
+                    <div className="stat-desc">POAPs coleccionados</div>
+                  </div>
+                </div>
+              </div>
+            ) : (
+              <div className="alert alert-warning">
+                <span>Aún no has registrado asistencia a ningún evento</span>
+              </div>
+            )}
+
+            <div className="divider">Información</div>
+
+            <div className="prose max-w-none">
+              <p className="text-sm text-base-content/70">
+                Los POAPs (Proof of Attendance Protocol) son NFTs que certifican tu asistencia a eventos de clase. Son
+                verificables en la blockchain y pueden ser usados como comprobante para:
+              </p>
+              <ul className="text-sm text-base-content/70 list-disc list-inside">
+                <li>Solicitudes de pasantías</li>
+                <li>Constancias académicas</li>
+                <li>Portafolio profesional</li>
+                <li>Requisitos de graduación</li>
+              </ul>
+            </div>
           </div>
         </div>
       </div>
