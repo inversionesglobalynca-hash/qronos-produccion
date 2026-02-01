@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { usePublicClient } from "wagmi";
 import { useScaffoldContract, useScaffoldReadContract } from "~~/hooks/scaffold-eth";
 import { notification } from "~~/utils/scaffold-eth";
@@ -43,9 +43,8 @@ export const AttendanceList = ({ eventId }: AttendanceListProps) => {
   });
 
   // Cargar asistentes desde eventos del blockchain
-  const loadAttendees = async () => {
+  const loadAttendees = useCallback(async () => {
     if (!contract || !publicClient) {
-      notification.error("❌ No se pudo conectar al contrato");
       return;
     }
 
@@ -107,14 +106,12 @@ export const AttendanceList = ({ eventId }: AttendanceListProps) => {
       notification.error("❌ Error al cargar lista de asistencia");
       setIsLoadingAttendance(false);
     }
-  };
+  }, [contract, publicClient, eventId]);
 
   // Cargar automáticamente al montar
   useEffect(() => {
-    if (contract && publicClient) {
-      loadAttendees();
-    }
-  }, [contract, publicClient, eventId]);
+    loadAttendees();
+  }, [loadAttendees]);
 
   // Exportar a CSV
   const handleExportCSV = () => {
