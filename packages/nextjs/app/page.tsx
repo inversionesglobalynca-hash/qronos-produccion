@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { useAccount } from "wagmi";
 import { ProfessorDashboard } from "~~/components/qronos/ProfessorDashboard";
 import { ProfessorRegistration } from "~~/components/qronos/ProfessorRegistration";
+import { ProfileMigration } from "~~/components/qronos/ProfileMigration";
 import { StudentDashboard } from "~~/components/qronos/StudentDashboard";
 import { StudentRegistration } from "~~/components/qronos/StudentRegistration";
 
@@ -38,6 +39,9 @@ const Home = () => {
 
   return (
     <div className="flex items-center flex-col flex-grow pt-10">
+      {/* Componente de migración (invisible) */}
+      <ProfileMigration />
+
       <div className="px-5 w-full max-w-7xl">
         {/* Hero Section */}
         <div className="text-center mb-12">
