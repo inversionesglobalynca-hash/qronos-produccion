@@ -2,15 +2,19 @@
 
 import { useEffect, useState } from "react";
 import { useAccount } from "wagmi";
+import { AdminPanel } from "~~/components/qronos/AdminPanel";
 import { ProfessorDashboard } from "~~/components/qronos/ProfessorDashboard";
 import { ProfessorRegistration } from "~~/components/qronos/ProfessorRegistration";
 import { ProfileMigration } from "~~/components/qronos/ProfileMigration";
 import { StudentDashboard } from "~~/components/qronos/StudentDashboard";
 import { StudentRegistration } from "~~/components/qronos/StudentRegistration";
 
+// Wallet del admin
+const ADMIN_ADDRESS = "0xB747850110877925Bd434CBC3Dac369941892A5a";
+
 const Home = () => {
   const { address, isConnected } = useAccount();
-  const [selectedRole, setSelectedRole] = useState<"student" | "professor" | null>(null);
+  const [selectedRole, setSelectedRole] = useState<"student" | "professor" | "admin" | null>(null);
   const [isProfessorRegistered, setIsProfessorRegistered] = useState(false);
   const [isStudentRegistered, setIsStudentRegistered] = useState(false);
 
@@ -77,7 +81,7 @@ const Home = () => {
                   <h2 className="card-title text-3xl mb-6">👤 Selecciona tu Rol</h2>
                   <p className="mb-8 text-base-content/70">¿Eres profesor o estudiante?</p>
 
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6 w-full max-w-2xl">
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-6 w-full max-w-3xl">
                     {/* Profesor Card */}
                     <div
                       onClick={() => setSelectedRole("professor")}
@@ -107,6 +111,21 @@ const Home = () => {
                         {isStudentRegistered && <div className="badge badge-success mt-2">✅ Ya Registrado</div>}
                       </div>
                     </div>
+
+                    {/* Admin Card - Solo visible para admin */}
+                    {address?.toLowerCase() === ADMIN_ADDRESS.toLowerCase() && (
+                      <div
+                        onClick={() => setSelectedRole("admin")}
+                        className="card bg-warning text-warning-content hover:scale-105 transition-transform cursor-pointer"
+                      >
+                        <div className="card-body items-center text-center">
+                          <span className="text-6xl mb-4">👑</span>
+                          <h3 className="card-title text-2xl">Admin</h3>
+                          <p className="text-sm opacity-90">Gestiona y aprueba profesores del sistema</p>
+                          <div className="badge badge-error mt-2">Panel de Control</div>
+                        </div>
+                      </div>
+                    )}
                   </div>
                 </div>
               </div>
@@ -127,6 +146,14 @@ const Home = () => {
                     >
                       🎓 Estudiante
                     </button>
+                    {address?.toLowerCase() === ADMIN_ADDRESS.toLowerCase() && (
+                      <button
+                        className={`btn ${selectedRole === "admin" ? "btn-active btn-warning" : ""}`}
+                        onClick={() => setSelectedRole("admin")}
+                      >
+                        👑 Admin
+                      </button>
+                    )}
                   </div>
                 </div>
 
@@ -137,11 +164,15 @@ const Home = () => {
                   ) : (
                     <ProfessorRegistration onRegistrationComplete={handleProfessorRegistration} />
                   )
-                ) : isStudentRegistered ? (
-                  <StudentDashboard />
-                ) : (
-                  <StudentRegistration onRegistrationComplete={handleStudentRegistration} />
-                )}
+                ) : selectedRole === "student" ? (
+                  isStudentRegistered ? (
+                    <StudentDashboard />
+                  ) : (
+                    <StudentRegistration onRegistrationComplete={handleStudentRegistration} />
+                  )
+                ) : selectedRole === "admin" ? (
+                  <AdminPanel />
+                ) : null}
               </>
             )}
           </>
