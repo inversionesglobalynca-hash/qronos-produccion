@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { MyProfessors } from "./MyProfessors";
 import { QRScanner } from "./QRScanner";
 import { useAccount } from "wagmi";
 import { useScaffoldReadContract, useScaffoldWriteContract } from "~~/hooks/scaffold-eth";
@@ -11,7 +12,7 @@ interface StudentProfile {
   fullName: string;
   idCard: string;
   specialty: string;
-  course: string;
+  courses: string[];
   registeredAt: string;
 }
 
@@ -23,11 +24,14 @@ interface AttendanceRecord {
   timestamp: string;
 }
 
+type TabType = "scanner" | "poaps" | "professors";
+
 export const StudentDashboard = () => {
   const { address } = useAccount();
 
   // Student profile
   const [studentProfile, setStudentProfile] = useState<StudentProfile | null>(null);
+  const [activeTab, setActiveTab] = useState<TabType>("scanner");
 
   const [scannedData, setScannedData] = useState<any>(null);
   const [manualQRData, setManualQRData] = useState("");
@@ -53,15 +57,11 @@ export const StudentDashboard = () => {
   // Mark attendance
   const { writeContractAsync: markAttendance, isPending: isMarking } = useScaffoldWriteContract("QRonos");
 
-  /**
-   * Procesar QR
-   */
   const processQR = (qrData: string) => {
     try {
       const data = JSON.parse(qrData);
       console.log("QR escaneado:", data);
 
-      // Validar estructura básica
       if (!data.eventId && data.eventId !== 0) {
         notification.error("❌ QR inválido - falta eventId");
         return;
@@ -77,13 +77,11 @@ export const StudentDashboard = () => {
         return;
       }
 
-      // Validar que el estudiante esté registrado
       if (!studentProfile) {
         notification.error("❌ Debes registrarte como estudiante primero");
         return;
       }
 
-      // Guardar datos
       setScannedData(data);
       notification.success(`✅ QR válido! Evento: ${data.eventId}`);
     } catch (error) {
@@ -92,9 +90,6 @@ export const StudentDashboard = () => {
     }
   };
 
-  /**
-   * Handle manual QR input
-   */
   const handleManualScan = () => {
     if (!manualQRData) {
       notification.error("Ingresa los datos del QR");
@@ -104,9 +99,6 @@ export const StudentDashboard = () => {
     processQR(manualQRData);
   };
 
-  /**
-   * Mark attendance with scanned data
-   */
   const handleMarkAttendance = async () => {
     if (!scannedData) {
       notification.error("Primero escanea un QR válido");
@@ -119,13 +111,11 @@ export const StudentDashboard = () => {
     }
 
     try {
-      // Intentar marcar asistencia
       await markAttendance({
         functionName: "markAttendanceWithQR",
         args: [BigInt(scannedData.eventId), BigInt(scannedData.timestamp), scannedData.signature],
       });
 
-      // Guardar registro de asistencia en localStorage
       const attendanceRecord: AttendanceRecord = {
         eventId: scannedData.eventId,
         timestamp: new Date().toISOString(),
@@ -169,7 +159,7 @@ export const StudentDashboard = () => {
               <div>
                 <h2 className="card-title text-2xl">{studentProfile.fullName}</h2>
                 <p className="text-sm opacity-90">
-                  {studentProfile.specialty} • {studentProfile.course}
+                  {studentProfile.specialty} • {studentProfile.courses.length} curso(s)
                 </p>
                 <p className="text-xs opacity-70 mt-1">Cédula: {studentProfile.idCard}</p>
                 <p className="text-xs opacity-70">
@@ -181,27 +171,44 @@ export const StudentDashboard = () => {
         </div>
       )}
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {/* QR Scanner Section */}
+      {/* Tabs */}
+      <div className="tabs tabs-boxed bg-base-200 p-1">
+        <a className={`tab ${activeTab === "scanner" ? "tab-active" : ""}`} onClick={() => setActiveTab("scanner")}>
+          📸 Escanear QR
+        </a>
+        <a className={`tab ${activeTab === "poaps" ? "tab-active" : ""}`} onClick={() => setActiveTab("poaps")}>
+          🎖️ Mis POAPs
+        </a>
+        <a
+          className={`tab ${activeTab === "professors" ? "tab-active" : ""}`}
+          onClick={() => setActiveTab("professors")}
+        >
+          👨‍🏫 Mis Profesores
+        </a>
+      </div>
+
+      {/* Tab Content */}
+      {activeTab === "scanner" && (
         <div className="card bg-base-100 shadow-xl">
           <div className="card-body">
             <h2 className="card-title text-2xl mb-4">📸 Escanear QR de Asistencia</h2>
 
-            {/* Info del estudiante */}
             {studentProfile && (
               <div className="alert alert-info mb-4">
                 <div className="flex flex-col w-full">
-                  <span className="font-bold text-sm">📋 Tu Perfil:</span>
+                  <span className="font-bold text-sm">📋 Tus Cursos:</span>
                   <p className="text-xs mt-1">
-                    Solo podrás marcar asistencia en eventos de:
-                    <br />• {studentProfile.specialty}
-                    <br />• {studentProfile.course}
+                    {studentProfile.courses.map((course, i) => (
+                      <span key={i}>
+                        • {course}
+                        <br />
+                      </span>
+                    ))}
                   </p>
                 </div>
               </div>
             )}
 
-            {/* Scanner con Cámara */}
             <QRScanner
               onScan={qrData => processQR(qrData)}
               onError={error => {
@@ -209,10 +216,8 @@ export const StudentDashboard = () => {
               }}
             />
 
-            {/* Divider */}
             <div className="divider">O ingresa manualmente para testing</div>
 
-            {/* Método Manual (Backup) */}
             <div className="collapse collapse-arrow bg-base-200">
               <input type="checkbox" />
               <div className="collapse-title text-sm font-medium">🔧 Modo Manual (Para Testing sin Cámara)</div>
@@ -239,7 +244,6 @@ export const StudentDashboard = () => {
               </div>
             </div>
 
-            {/* QR Procesado - Marcar Asistencia */}
             {scannedData && (
               <div className="alert alert-success mt-4">
                 <div className="flex flex-col items-start w-full">
@@ -266,8 +270,9 @@ export const StudentDashboard = () => {
             )}
           </div>
         </div>
+      )}
 
-        {/* My POAPs Section */}
+      {activeTab === "poaps" && (
         <div className="card bg-base-100 shadow-xl">
           <div className="card-body">
             <h2 className="card-title text-2xl mb-4">🎖️ Mis POAPs de Asistencia</h2>
@@ -326,7 +331,9 @@ export const StudentDashboard = () => {
             </div>
           </div>
         </div>
-      </div>
+      )}
+
+      {activeTab === "professors" && <MyProfessors />}
     </div>
   );
 };

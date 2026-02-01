@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import { MyStudents } from "./MyStudents";
 import { QRCodeSVG } from "qrcode.react";
 import { useAccount, useWalletClient } from "wagmi";
 import { useScaffoldReadContract, useScaffoldWriteContract } from "~~/hooks/scaffold-eth";
@@ -10,18 +11,21 @@ interface ProfessorProfile {
   address: string;
   fullName: string;
   specialty: string;
-  course: string;
+  courses: string[];
   registeredAt: string;
 }
+
+type TabType = "create-event" | "students";
 
 export const ProfessorDashboard = () => {
   const { address } = useAccount();
   const { data: walletClient } = useWalletClient();
 
-  // Professor profile
   const [professorProfile, setProfessorProfile] = useState<ProfessorProfile | null>(null);
+  const [activeTab, setActiveTab] = useState<TabType>("create-event");
 
   // Form state
+  const [selectedCourse, setSelectedCourse] = useState("");
   const [eventName, setEventName] = useState("");
   const [eventCode, setEventCode] = useState("");
   const [maxAttendees, setMaxAttendees] = useState("30");
@@ -39,7 +43,12 @@ export const ProfessorDashboard = () => {
     if (address) {
       const stored = localStorage.getItem(`professor_${address}`);
       if (stored) {
-        setProfessorProfile(JSON.parse(stored));
+        const profile = JSON.parse(stored);
+        setProfessorProfile(profile);
+        // Seleccionar el primer curso por defecto
+        if (profile.courses && profile.courses.length > 0) {
+          setSelectedCourse(profile.courses[0]);
+        }
       }
     }
   }, [address]);
@@ -55,9 +64,6 @@ export const ProfessorDashboard = () => {
   // Create event
   const { writeContractAsync: createEvent, isPending: isCreating } = useScaffoldWriteContract("QRonos");
 
-  /**
-   * Generate QR signature
-   */
   const generateQRSignature = async (eventId: number, timestamp: number) => {
     if (!walletClient || !address) {
       console.error("Wallet not connected");
@@ -81,9 +87,6 @@ export const ProfessorDashboard = () => {
     }
   };
 
-  /**
-   * Update QR code
-   */
   const updateQR = async () => {
     if (activeEventId === null || !walletClient) return;
 
@@ -105,9 +108,6 @@ export const ProfessorDashboard = () => {
     }
   };
 
-  /**
-   * Start QR generation
-   */
   const startQRGeneration = (eventId: number) => {
     setActiveEventId(eventId);
 
@@ -119,9 +119,6 @@ export const ProfessorDashboard = () => {
     intervalRef.current = setInterval(updateQR, 15000);
   };
 
-  /**
-   * Stop QR generation
-   */
   const stopQRGeneration = () => {
     if (intervalRef.current) {
       clearInterval(intervalRef.current);
@@ -131,9 +128,6 @@ export const ProfessorDashboard = () => {
     setTimeRemaining(15);
   };
 
-  /**
-   * Countdown timer
-   */
   useEffect(() => {
     if (!qrTimestamp || activeEventId === null) return;
 
@@ -147,9 +141,6 @@ export const ProfessorDashboard = () => {
     return () => clearInterval(countdownInterval);
   }, [qrTimestamp, activeEventId]);
 
-  /**
-   * Cleanup on unmount
-   */
   useEffect(() => {
     return () => {
       if (intervalRef.current) {
@@ -158,12 +149,14 @@ export const ProfessorDashboard = () => {
     };
   }, []);
 
-  /**
-   * Handle create event
-   */
   const handleCreateEvent = async () => {
     if (!eventName || !eventCode) {
       notification.error("Por favor completa todos los campos");
+      return;
+    }
+
+    if (!selectedCourse) {
+      notification.error("Debes seleccionar un curso");
       return;
     }
 
@@ -173,23 +166,20 @@ export const ProfessorDashboard = () => {
     }
 
     try {
-      // Crear evento en blockchain
       await createEvent({
         functionName: "createClassEvent",
         args: [eventName, eventCode, BigInt(maxAttendees), "", BigInt(duration)],
       });
 
-      // Guardar metadata del evento en localStorage
       const eventMetadata = {
         eventName,
         eventCode,
         professorName: professorProfile.fullName,
         specialty: professorProfile.specialty,
-        course: professorProfile.course,
+        course: selectedCourse,
         createdAt: new Date().toISOString(),
       };
 
-      // Guardar en array de eventos del profesor
       const eventsKey = `professor_events_${address}`;
       const existingEvents = JSON.parse(localStorage.getItem(eventsKey) || "[]");
       existingEvents.push(eventMetadata);
@@ -197,7 +187,6 @@ export const ProfessorDashboard = () => {
 
       notification.success("✅ Evento creado exitosamente!");
 
-      // Reset form
       setEventName("");
       setEventCode("");
       setMaxAttendees("30");
@@ -210,9 +199,6 @@ export const ProfessorDashboard = () => {
     }
   };
 
-  /**
-   * Manual event ID input for testing
-   */
   const [manualEventId, setManualEventId] = useState("");
 
   return (
@@ -226,7 +212,7 @@ export const ProfessorDashboard = () => {
               <div>
                 <h2 className="card-title text-2xl">{professorProfile.fullName}</h2>
                 <p className="text-sm opacity-90">
-                  {professorProfile.specialty} • {professorProfile.course}
+                  {professorProfile.specialty} • {professorProfile.courses.length} curso(s)
                 </p>
                 <p className="text-xs opacity-70 mt-1">
                   Wallet: {address?.slice(0, 6)}...{address?.slice(-4)}
@@ -237,199 +223,234 @@ export const ProfessorDashboard = () => {
         </div>
       )}
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {/* Event Creation Form */}
-        <div className="card bg-base-100 shadow-xl">
-          <div className="card-body">
-            <h2 className="card-title text-2xl mb-4">📅 Crear Evento de Clase</h2>
+      {/* Tabs */}
+      <div className="tabs tabs-boxed bg-base-200 p-1">
+        <a
+          className={`tab ${activeTab === "create-event" ? "tab-active" : ""}`}
+          onClick={() => setActiveTab("create-event")}
+        >
+          📅 Crear Evento
+        </a>
+        <a className={`tab ${activeTab === "students" ? "tab-active" : ""}`} onClick={() => setActiveTab("students")}>
+          🎓 Mis Estudiantes
+        </a>
+      </div>
 
-            {/* Info automática */}
-            {professorProfile && (
-              <div className="alert alert-info mb-4">
-                <div className="flex flex-col w-full">
-                  <span className="font-bold text-sm">📋 Información Automática:</span>
-                  <p className="text-xs mt-1">
-                    Especialidad: {professorProfile.specialty}
-                    <br />
-                    Materia: {professorProfile.course}
-                  </p>
+      {/* Tab Content */}
+      {activeTab === "create-event" && (
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          {/* Event Creation Form */}
+          <div className="card bg-base-100 shadow-xl">
+            <div className="card-body">
+              <h2 className="card-title text-2xl mb-4">📅 Crear Evento de Clase</h2>
+
+              {/* Selector de Curso */}
+              {professorProfile && professorProfile.courses.length > 0 && (
+                <div className="form-control">
+                  <label className="label">
+                    <span className="label-text font-semibold">Selecciona el Curso *</span>
+                  </label>
+                  <select
+                    className="select select-bordered select-lg"
+                    value={selectedCourse}
+                    onChange={e => setSelectedCourse(e.target.value)}
+                  >
+                    {professorProfile.courses.map(course => (
+                      <option key={course} value={course}>
+                        {course}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              )}
+
+              {/* Info automática */}
+              {professorProfile && selectedCourse && (
+                <div className="alert alert-info mb-4">
+                  <div className="flex flex-col w-full">
+                    <span className="font-bold text-sm">📋 Información del Evento:</span>
+                    <p className="text-xs mt-1">
+                      Especialidad: {professorProfile.specialty}
+                      <br />
+                      Materia: {selectedCourse}
+                    </p>
+                  </div>
+                </div>
+              )}
+
+              <div className="form-control">
+                <label className="label">
+                  <span className="label-text">Nombre del Evento</span>
+                </label>
+                <input
+                  type="text"
+                  placeholder="Ej: Clase 5 - React Hooks"
+                  className="input input-bordered"
+                  value={eventName}
+                  onChange={e => setEventName(e.target.value)}
+                />
+              </div>
+
+              <div className="form-control">
+                <label className="label">
+                  <span className="label-text">Código del Evento</span>
+                </label>
+                <input
+                  type="text"
+                  placeholder="Ej: PROG-WEB-05"
+                  className="input input-bordered"
+                  value={eventCode}
+                  onChange={e => setEventCode(e.target.value)}
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div className="form-control">
+                  <label className="label">
+                    <span className="label-text">Cupo Máximo</span>
+                  </label>
+                  <input
+                    type="number"
+                    className="input input-bordered"
+                    value={maxAttendees}
+                    onChange={e => setMaxAttendees(e.target.value)}
+                  />
+                </div>
+
+                <div className="form-control">
+                  <label className="label">
+                    <span className="label-text">Duración (min)</span>
+                  </label>
+                  <input
+                    type="number"
+                    className="input input-bordered"
+                    value={duration}
+                    onChange={e => setDuration(e.target.value)}
+                  />
                 </div>
               </div>
-            )}
 
-            <div className="form-control">
-              <label className="label">
-                <span className="label-text">Nombre del Evento</span>
-              </label>
-              <input
-                type="text"
-                placeholder="Ej: Clase 5 - React Hooks"
-                className="input input-bordered"
-                value={eventName}
-                onChange={e => setEventName(e.target.value)}
-              />
-            </div>
+              <button className="btn btn-primary mt-4" onClick={handleCreateEvent} disabled={isCreating}>
+                {isCreating ? (
+                  <>
+                    <span className="loading loading-spinner"></span>
+                    Creando...
+                  </>
+                ) : (
+                  "🚀 Crear Evento"
+                )}
+              </button>
 
-            <div className="form-control">
-              <label className="label">
-                <span className="label-text">Código del Evento</span>
-              </label>
-              <input
-                type="text"
-                placeholder="Ej: PROG-WEB-05"
-                className="input input-bordered"
-                value={eventCode}
-                onChange={e => setEventCode(e.target.value)}
-              />
-            </div>
-
-            <div className="grid grid-cols-2 gap-4">
-              <div className="form-control">
-                <label className="label">
-                  <span className="label-text">Cupo Máximo</span>
-                </label>
+              <div className="divider">Testing: Activar QR Manualmente</div>
+              <div className="flex gap-2">
                 <input
                   type="number"
-                  className="input input-bordered"
-                  value={maxAttendees}
-                  onChange={e => setMaxAttendees(e.target.value)}
+                  placeholder="Event ID (ej: 0)"
+                  className="input input-bordered flex-1"
+                  value={manualEventId}
+                  onChange={e => setManualEventId(e.target.value)}
                 />
-              </div>
-
-              <div className="form-control">
-                <label className="label">
-                  <span className="label-text">Duración (min)</span>
-                </label>
-                <input
-                  type="number"
-                  className="input input-bordered"
-                  value={duration}
-                  onChange={e => setDuration(e.target.value)}
-                />
+                <button
+                  className="btn btn-secondary"
+                  onClick={() => {
+                    const id = parseInt(manualEventId);
+                    if (!isNaN(id)) {
+                      startQRGeneration(id);
+                      notification.success(`QR activado para Event ID: ${id}`);
+                    }
+                  }}
+                >
+                  Activar QR
+                </button>
               </div>
             </div>
+          </div>
 
-            <button className="btn btn-primary mt-4" onClick={handleCreateEvent} disabled={isCreating}>
-              {isCreating ? (
+          {/* Dynamic QR Display */}
+          <div className="card bg-base-100 shadow-xl">
+            <div className="card-body items-center">
+              <h2 className="card-title text-2xl mb-4">📱 QR de Asistencia</h2>
+
+              {activeEventId !== null && qrData ? (
                 <>
-                  <span className="loading loading-spinner"></span>
-                  Creando...
+                  <div className="bg-white p-6 rounded-lg mb-4">
+                    <QRCodeSVG value={qrData} size={256} level="H" />
+                  </div>
+
+                  <div
+                    className="radial-progress text-primary mb-4"
+                    style={{ "--value": (timeRemaining / 15) * 100, "--size": "5rem" } as React.CSSProperties}
+                    role="progressbar"
+                  >
+                    {timeRemaining}s
+                  </div>
+
+                  {eventData && (
+                    <div className="stats stats-vertical lg:stats-horizontal shadow w-full">
+                      <div className="stat">
+                        <div className="stat-title">Evento</div>
+                        <div className="stat-value text-lg">{eventData[0]}</div>
+                        <div className="stat-desc">{eventData[1]}</div>
+                      </div>
+
+                      <div className="stat">
+                        <div className="stat-title">Asistentes</div>
+                        <div className="stat-value text-primary">
+                          {eventData[3]?.toString()}/{eventData[4]?.toString()}
+                        </div>
+                        <div className="stat-desc">
+                          {eventData[3] && eventData[4]
+                            ? `${Math.round((Number(eventData[3]) / Number(eventData[4])) * 100)}% de cupo`
+                            : "0%"}
+                        </div>
+                      </div>
+                    </div>
+                  )}
+
+                  {professorProfile && selectedCourse && (
+                    <div className="alert alert-success mt-2 w-full">
+                      <div className="flex flex-col items-start w-full text-sm">
+                        <span className="font-bold">📚 {selectedCourse}</span>
+                        <span className="text-xs opacity-80">{professorProfile.specialty}</span>
+                      </div>
+                    </div>
+                  )}
+
+                  <div className="alert alert-info mt-2 w-full">
+                    <div className="flex flex-col items-start w-full">
+                      <span className="font-bold">⏰ QR Activo</span>
+                      <p className="text-sm">Se actualiza cada 15 segundos automáticamente</p>
+                      <p className="text-xs opacity-70 mt-1">
+                        Última actualización: {new Date(qrTimestamp * 1000).toLocaleTimeString()}
+                      </p>
+
+                      <button
+                        className="btn btn-sm btn-outline mt-2 w-full"
+                        onClick={() => {
+                          navigator.clipboard.writeText(qrData);
+                          notification.success("📋 JSON copiado al portapapeles");
+                        }}
+                      >
+                        📋 Copiar JSON del QR
+                      </button>
+                    </div>
+                  </div>
+
+                  <button className="btn btn-error mt-4 w-full" onClick={stopQRGeneration}>
+                    🛑 Detener QR
+                  </button>
                 </>
               ) : (
-                "🚀 Crear Evento"
+                <div className="alert alert-warning">
+                  <span>Crea un evento o ingresa un Event ID para generar el QR dinámico</span>
+                </div>
               )}
-            </button>
-
-            {/* Manual Event ID for Testing */}
-            <div className="divider">Testing: Activar QR Manualmente</div>
-            <div className="flex gap-2">
-              <input
-                type="number"
-                placeholder="Event ID (ej: 0)"
-                className="input input-bordered flex-1"
-                value={manualEventId}
-                onChange={e => setManualEventId(e.target.value)}
-              />
-              <button
-                className="btn btn-secondary"
-                onClick={() => {
-                  const id = parseInt(manualEventId);
-                  if (!isNaN(id)) {
-                    startQRGeneration(id);
-                    notification.success(`QR activado para Event ID: ${id}`);
-                  }
-                }}
-              >
-                Activar QR
-              </button>
             </div>
           </div>
         </div>
+      )}
 
-        {/* Dynamic QR Display */}
-        <div className="card bg-base-100 shadow-xl">
-          <div className="card-body items-center">
-            <h2 className="card-title text-2xl mb-4">📱 QR de Asistencia</h2>
-
-            {activeEventId !== null && qrData ? (
-              <>
-                <div className="bg-white p-6 rounded-lg mb-4">
-                  <QRCodeSVG value={qrData} size={256} level="H" />
-                </div>
-
-                {/* Countdown Timer */}
-                <div
-                  className="radial-progress text-primary mb-4"
-                  style={{ "--value": (timeRemaining / 15) * 100, "--size": "5rem" } as React.CSSProperties}
-                  role="progressbar"
-                >
-                  {timeRemaining}s
-                </div>
-
-                {eventData && (
-                  <div className="stats stats-vertical lg:stats-horizontal shadow w-full">
-                    <div className="stat">
-                      <div className="stat-title">Evento</div>
-                      <div className="stat-value text-lg">{eventData[0]}</div>
-                      <div className="stat-desc">{eventData[1]}</div>
-                    </div>
-
-                    <div className="stat">
-                      <div className="stat-title">Asistentes</div>
-                      <div className="stat-value text-primary">
-                        {eventData[3]?.toString()}/{eventData[4]?.toString()}
-                      </div>
-                      <div className="stat-desc">
-                        {eventData[3] && eventData[4]
-                          ? `${Math.round((Number(eventData[3]) / Number(eventData[4])) * 100)}% de cupo`
-                          : "0%"}
-                      </div>
-                    </div>
-                  </div>
-                )}
-
-                {/* Info del profesor */}
-                {professorProfile && (
-                  <div className="alert alert-success mt-2 w-full">
-                    <div className="flex flex-col items-start w-full text-sm">
-                      <span className="font-bold">📚 {professorProfile.course}</span>
-                      <span className="text-xs opacity-80">{professorProfile.specialty}</span>
-                    </div>
-                  </div>
-                )}
-
-                <div className="alert alert-info mt-2 w-full">
-                  <div className="flex flex-col items-start w-full">
-                    <span className="font-bold">⏰ QR Activo</span>
-                    <p className="text-sm">Se actualiza cada 15 segundos automáticamente</p>
-                    <p className="text-xs opacity-70 mt-1">
-                      Última actualización: {new Date(qrTimestamp * 1000).toLocaleTimeString()}
-                    </p>
-
-                    <button
-                      className="btn btn-sm btn-outline mt-2 w-full"
-                      onClick={() => {
-                        navigator.clipboard.writeText(qrData);
-                        notification.success("📋 JSON copiado al portapapeles");
-                      }}
-                    >
-                      📋 Copiar JSON del QR
-                    </button>
-                  </div>
-                </div>
-
-                <button className="btn btn-error mt-4 w-full" onClick={stopQRGeneration}>
-                  🛑 Detener QR
-                </button>
-              </>
-            ) : (
-              <div className="alert alert-warning">
-                <span>Crea un evento o ingresa un Event ID para generar el QR dinámico</span>
-              </div>
-            )}
-          </div>
-        </div>
-      </div>
+      {activeTab === "students" && <MyStudents />}
     </div>
   );
 };
