@@ -194,7 +194,7 @@ export const AdminPanel = () => {
                   <div className="flex-1">
                     <h3 className="font-bold text-xl">{prof.fullName}</h3>
                     <p className="text-sm opacity-70 mt-1">
-                      {prof.specialty} • {prof.courses.length} curso(s)
+                      {prof.specialty} • {prof.courses ? prof.courses.length : 0} curso(s)
                     </p>
                     <div className="mt-2">
                       <code className="text-xs bg-base-300 px-2 py-1 rounded">
@@ -207,11 +207,15 @@ export const AdminPanel = () => {
                     <div className="mt-2">
                       <span className="text-xs font-semibold">Cursos:</span>
                       <div className="flex flex-wrap gap-1 mt-1">
-                        {prof.courses.map((course, i) => (
-                          <div key={i} className="badge badge-sm badge-outline">
-                            {course}
-                          </div>
-                        ))}
+                        {prof.courses && prof.courses.length > 0 ? (
+                          prof.courses.map((course, i) => (
+                            <div key={i} className="badge badge-sm badge-outline">
+                              {course}
+                            </div>
+                          ))
+                        ) : (
+                          <span className="text-xs opacity-50">Sin cursos registrados</span>
+                        )}
                       </div>
                     </div>
                   </div>
