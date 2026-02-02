@@ -2,7 +2,6 @@
 
 import { useState } from "react";
 import { useAccount } from "wagmi";
-import { useScaffoldWriteContract } from "~~/hooks/scaffold-eth";
 import { SPECIALTIES_LIST, getCoursesBySpecialty } from "~~/utils/qronos/constants";
 import { notification } from "~~/utils/scaffold-eth";
 
@@ -10,7 +9,7 @@ interface ProfessorProfile {
   address: string;
   fullName: string;
   specialty: string;
-  course: string;
+  courses: string[];
   registeredAt: string;
 }
 
@@ -23,21 +22,33 @@ export const ProfessorRegistration = ({ onRegistrationComplete }: ProfessorRegis
   const [formData, setFormData] = useState({
     fullName: "",
     specialty: "",
-    course: "",
+    courses: [] as string[],
   });
-
-  const { writeContractAsync: addProfessorWrite } = useScaffoldWriteContract("QRonos");
 
   const handleSpecialtyChange = (newSpecialty: string) => {
     setFormData({
       ...formData,
       specialty: newSpecialty,
-      course: "", // Resetear curso al cambiar especialidad
+      courses: [],
     });
   };
 
+  const handleCourseToggle = (course: string) => {
+    const currentCourses = formData.courses;
+    if (currentCourses.includes(course)) {
+      setFormData({
+        ...formData,
+        courses: currentCourses.filter(c => c !== course),
+      });
+    } else {
+      setFormData({
+        ...formData,
+        courses: [...currentCourses, course],
+      });
+    }
+  };
+
   const handleRegister = async () => {
-    // Validaciones
     if (!formData.fullName.trim()) {
       notification.error("❌ El nombre es obligatorio");
       return;
@@ -48,8 +59,8 @@ export const ProfessorRegistration = ({ onRegistrationComplete }: ProfessorRegis
       return;
     }
 
-    if (!formData.course) {
-      notification.error("❌ Debes seleccionar un curso/materia");
+    if (formData.courses.length === 0) {
+      notification.error("❌ Debes seleccionar al menos un curso/materia");
       return;
     }
 
@@ -59,38 +70,31 @@ export const ProfessorRegistration = ({ onRegistrationComplete }: ProfessorRegis
     }
 
     try {
-      // 1. Agregar profesor al smart contract
-      notification.info("📝 Registrando profesor en blockchain...");
-
-      await addProfessorWrite({
-        functionName: "addProfessor",
-        args: [connectedAddress],
-      });
-
-      // 2. Guardar perfil completo en localStorage
       const profile: ProfessorProfile = {
         address: connectedAddress,
         fullName: formData.fullName.trim(),
         specialty: formData.specialty,
-        course: formData.course,
+        courses: formData.courses,
         registeredAt: new Date().toISOString(),
       };
 
       localStorage.setItem(`professor_${connectedAddress}`, JSON.stringify(profile));
 
-      notification.success(`✅ ¡Bienvenido, ${formData.fullName}! Ya puedes crear eventos.`);
+      // Indexar por curso para trazabilidad
+      formData.courses.forEach(course => {
+        const indexKey = `course_professor_${course}`;
+        localStorage.setItem(indexKey, connectedAddress);
+      });
 
-      // 3. Notificar al componente padre
+      setFormData({ fullName: "", specialty: "", courses: [] });
+
+      notification.success(`✅ ¡Bienvenido, ${formData.fullName}! Perfil registrado.`);
+      notification.info("⚠️ Para crear eventos, un admin debe darte permisos en el contrato.");
+
       onRegistrationComplete(profile);
     } catch (error: any) {
       console.error("Error al registrar profesor:", error);
-
-      // Verificar si el error es porque ya está registrado
-      if (error.message?.includes("Ya es profesor")) {
-        notification.warning("⚠️ Ya estás registrado como profesor");
-      } else {
-        notification.error(`❌ Error al registrar: ${error.message || "Intenta de nuevo"}`);
-      }
+      notification.error(`❌ Error al registrar: ${error.message || "Intenta de nuevo"}`);
     }
   };
 
@@ -98,16 +102,14 @@ export const ProfessorRegistration = ({ onRegistrationComplete }: ProfessorRegis
 
   return (
     <div className="flex flex-col items-center justify-center min-h-[60vh] px-4">
-      <div className="card bg-base-200 shadow-xl w-full max-w-2xl">
+      <div className="card bg-base-200 shadow-xl w-full max-w-3xl">
         <div className="card-body">
-          {/* Header */}
           <div className="text-center mb-6">
             <span className="text-6xl mb-4 block">👨‍🏫</span>
             <h2 className="card-title text-3xl justify-center mb-2">Registro de Profesor</h2>
             <p className="text-base-content/70">Completa tu perfil para empezar a crear eventos</p>
           </div>
 
-          {/* Wallet Conectada */}
           <div className="alert alert-info mb-4">
             <div className="flex flex-col w-full">
               <span className="font-bold">🔗 Wallet Conectada:</span>
@@ -115,8 +117,7 @@ export const ProfessorRegistration = ({ onRegistrationComplete }: ProfessorRegis
             </div>
           </div>
 
-          {/* Formulario */}
-          <div className="space-y-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             {/* Nombre Completo */}
             <div className="form-control">
               <label className="label">
@@ -141,7 +142,7 @@ export const ProfessorRegistration = ({ onRegistrationComplete }: ProfessorRegis
                 value={formData.specialty}
                 onChange={e => handleSpecialtyChange(e.target.value)}
               >
-                <option value="">Seleccionar especialidad...</option>
+                <option value="">Seleccionar...</option>
                 {SPECIALTIES_LIST.map(spec => (
                   <option key={spec} value={spec}>
                     {spec}
@@ -149,46 +150,53 @@ export const ProfessorRegistration = ({ onRegistrationComplete }: ProfessorRegis
                 ))}
               </select>
             </div>
-
-            {/* Curso/Materia */}
-            <div className="form-control">
-              <label className="label">
-                <span className="label-text font-semibold">Curso/Materia que Imparte *</span>
-              </label>
-              <select
-                className="select select-bordered select-lg"
-                value={formData.course}
-                onChange={e => setFormData({ ...formData, course: e.target.value })}
-                disabled={!formData.specialty}
-              >
-                <option value="">
-                  {formData.specialty ? "Seleccionar curso..." : "Primero selecciona una especialidad"}
-                </option>
-                {availableCourses.map(course => (
-                  <option key={course} value={course}>
-                    {course}
-                  </option>
-                ))}
-              </select>
-            </div>
           </div>
 
-          {/* Advertencia */}
+          {/* Cursos que Imparte */}
+          <div className="form-control mt-4">
+            <label className="label">
+              <span className="label-text font-semibold">Cursos/Materias que Imparte *</span>
+              {formData.courses.length > 0 && (
+                <span className="label-text-alt badge badge-primary">{formData.courses.length} seleccionados</span>
+              )}
+            </label>
+
+            {!formData.specialty ? (
+              <div className="alert alert-warning">
+                <span className="text-sm">Primero selecciona una especialidad</span>
+              </div>
+            ) : (
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-2 p-4 bg-base-300 rounded-lg max-h-64 overflow-y-auto">
+                {availableCourses.map(course => (
+                  <label key={course} className="label cursor-pointer justify-start gap-3">
+                    <input
+                      type="checkbox"
+                      className="checkbox checkbox-primary"
+                      checked={formData.courses.includes(course)}
+                      onChange={() => handleCourseToggle(course)}
+                    />
+                    <span className="label-text">{course}</span>
+                  </label>
+                ))}
+              </div>
+            )}
+          </div>
+
           <div className="alert alert-warning mt-4">
             <div className="flex flex-col w-full">
               <span className="font-bold">⚠️ Importante:</span>
               <span className="text-sm mt-1">
-                Una vez registrado, NO podrás modificar estos datos. Asegúrate de que toda la información sea correcta.
+                Una vez registrado, NO podrás modificar estos datos. Asegúrate de seleccionar todos los cursos que
+                impartes.
               </span>
             </div>
           </div>
 
-          {/* Botón de Registro */}
           <div className="card-actions justify-center mt-6">
             <button
               className="btn btn-primary btn-lg w-full"
               onClick={handleRegister}
-              disabled={!formData.fullName || !formData.specialty || !formData.course}
+              disabled={!formData.fullName || !formData.specialty || formData.courses.length === 0}
             >
               ✅ Registrarme como Profesor
             </button>
