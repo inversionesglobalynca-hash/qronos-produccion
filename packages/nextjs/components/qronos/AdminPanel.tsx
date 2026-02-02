@@ -43,16 +43,31 @@ export const AdminPanel = () => {
     for (let i = 0; i < localStorage.length; i++) {
       const key = localStorage.key(i);
       if (key?.startsWith("professor_")) {
-        const profile = JSON.parse(localStorage.getItem(key)!);
+        try {
+          const profile = JSON.parse(localStorage.getItem(key)!);
 
-        // Verificar estado de aprobación
-        const statusKey = `professor_status_${profile.address}`;
-        const status = localStorage.getItem(statusKey) || "pending";
+          // Validar que el perfil tenga datos mínimos
+          if (!profile.address || !profile.fullName) {
+            console.warn("Perfil incompleto encontrado:", key);
+            continue;
+          }
 
-        allProfessors.push({
-          ...profile,
-          status: status as "pending" | "approved" | "rejected",
-        });
+          // Asegurar que courses sea un array
+          if (!profile.courses || !Array.isArray(profile.courses)) {
+            profile.courses = [];
+          }
+
+          // Verificar estado de aprobación
+          const statusKey = `professor_status_${profile.address}`;
+          const status = localStorage.getItem(statusKey) || "pending";
+
+          allProfessors.push({
+            ...profile,
+            status: status as "pending" | "approved" | "rejected",
+          });
+        } catch (error) {
+          console.error("Error al procesar perfil:", key, error);
+        }
       }
     }
 
@@ -167,6 +182,13 @@ export const AdminPanel = () => {
         </div>
       </div>
 
+      {/* Actualizar Lista */}
+      <div className="flex justify-end">
+        <button className="btn btn-outline btn-sm gap-2" onClick={loadProfessors}>
+          🔄 Actualizar Lista
+        </button>
+      </div>
+
       {/* Filters */}
       <div className="tabs tabs-boxed bg-base-200 p-1">
         <a className={`tab ${filter === "pending" ? "tab-active" : ""}`} onClick={() => setFilter("pending")}>
@@ -198,7 +220,7 @@ export const AdminPanel = () => {
                     </p>
                     <div className="mt-2">
                       <code className="text-xs bg-base-300 px-2 py-1 rounded">
-                        {prof.address.slice(0, 10)}...{prof.address.slice(-8)}
+                        {prof.address ? `${prof.address.slice(0, 10)}...${prof.address.slice(-8)}` : "Sin dirección"}
                       </code>
                     </div>
                     <p className="text-xs opacity-50 mt-2">
