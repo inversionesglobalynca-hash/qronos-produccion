@@ -51,6 +51,12 @@ export const AttendanceList = ({ eventId }: AttendanceListProps) => {
     setIsLoadingAttendance(true);
 
     try {
+      // Obtener bloque actual
+      const currentBlock = await publicClient.getBlockNumber();
+
+      // Buscar solo los últimos 10,000 bloques (aprox últimos días en Sepolia)
+      const fromBlock = currentBlock > 10000n ? currentBlock - 10000n : 0n;
+
       // Leer eventos AttendanceMarked para este eventId
       const logs = await publicClient.getLogs({
         address: contract.address,
@@ -66,7 +72,7 @@ export const AttendanceList = ({ eventId }: AttendanceListProps) => {
         args: {
           eventId: BigInt(eventId),
         },
-        fromBlock: 0n,
+        fromBlock,
         toBlock: "latest",
       });
 
