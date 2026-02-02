@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import { AttendanceList } from "./AttendanceList";
 import { MyStudents } from "./MyStudents";
 import { QRCodeSVG } from "qrcode.react";
 import { useAccount, useWalletClient } from "wagmi";
@@ -15,7 +16,7 @@ interface ProfessorProfile {
   registeredAt: string;
 }
 
-type TabType = "create-event" | "students";
+type TabType = "create-event" | "students" | "attendance";
 
 export const ProfessorDashboard = () => {
   const { address } = useAccount();
@@ -166,11 +167,18 @@ export const ProfessorDashboard = () => {
     }
 
     try {
+      notification.info("📝 Creando evento...");
+
+      // Crear evento en blockchain
       await createEvent({
         functionName: "createClassEvent",
         args: [eventName, eventCode, BigInt(maxAttendees), "", BigInt(duration)],
       });
 
+      // Esperar confirmación de la transacción
+      notification.info("⏳ Esperando confirmación...");
+
+      // Guardar metadata
       const eventMetadata = {
         eventName,
         eventCode,
@@ -185,14 +193,25 @@ export const ProfessorDashboard = () => {
       existingEvents.push(eventMetadata);
       localStorage.setItem(eventsKey, JSON.stringify(existingEvents));
 
-      notification.success("✅ Evento creado exitosamente!");
+      // Obtener el Event ID del evento recién creado
+      // El eventCounter en el contrato se incrementa después de crear el evento
+      // Por lo tanto, el nuevo evento tiene ID = eventCounter - 1
+      // Pero como no tenemos acceso directo, usamos el índice del array
+      const newEventId = existingEvents.length - 1;
 
+      notification.success("✅ Evento creado exitosamente!");
+      notification.success(`🎉 Generando QR automáticamente para Event ID: ${newEventId}`);
+
+      // Limpiar formulario
       setEventName("");
       setEventCode("");
       setMaxAttendees("30");
       setDuration("90");
 
-      notification.info("💡 Usa 'Activar QR Manualmente' con el Event ID del nuevo evento");
+      // ✨ GENERAR QR AUTOMÁTICAMENTE
+      setTimeout(() => {
+        startQRGeneration(newEventId);
+      }, 1000);
     } catch (error) {
       console.error("Error al crear evento:", error);
       notification.error("❌ Error al crear evento");
@@ -233,6 +252,12 @@ export const ProfessorDashboard = () => {
         </a>
         <a className={`tab ${activeTab === "students" ? "tab-active" : ""}`} onClick={() => setActiveTab("students")}>
           🎓 Mis Estudiantes
+        </a>
+        <a
+          className={`tab ${activeTab === "attendance" ? "tab-active" : ""}`}
+          onClick={() => setActiveTab("attendance")}
+        >
+          📊 Lista de Asistencia
         </a>
       </div>
 
@@ -451,6 +476,40 @@ export const ProfessorDashboard = () => {
       )}
 
       {activeTab === "students" && <MyStudents />}
+
+      {activeTab === "attendance" && (
+        <div className="space-y-4">
+          <div className="card bg-base-200 shadow-xl">
+            <div className="card-body">
+              <h2 className="card-title text-2xl mb-4">🔍 Seleccionar Evento</h2>
+              <p className="text-sm text-base-content/70 mb-4">
+                Ingresa el ID del evento para ver su lista de asistencia
+              </p>
+
+              <div className="form-control">
+                <label className="label">
+                  <span className="label-text font-semibold">Event ID</span>
+                </label>
+                <input
+                  type="number"
+                  placeholder="Ej: 0, 1, 2..."
+                  className="input input-bordered input-lg"
+                  value={activeEventId !== null ? activeEventId : ""}
+                  onChange={e => {
+                    const value = e.target.value;
+                    setActiveEventId(value ? parseInt(value) : null);
+                  }}
+                />
+                <label className="label">
+                  <span className="label-text-alt">💡 El Event ID se muestra cuando creas un evento</span>
+                </label>
+              </div>
+            </div>
+          </div>
+
+          {activeEventId !== null && <AttendanceList eventId={activeEventId} />}
+        </div>
+      )}
     </div>
   );
 };
